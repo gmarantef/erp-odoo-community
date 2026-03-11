@@ -1,0 +1,121 @@
+# ERP Odoo Community
+
+ERP basado en Odoo Community 18 para uso interno de la asociación.
+Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto seguro vía VPN.
+
+---
+
+## Arquitectura
+
+```
+┌─────────────────────────────────────────────────────┐
+│                     mini PC (Debian)                │
+│                                                     │
+│  ┌──────────┐   ┌──────────┐   ┌─────────────────┐ │
+│  │  Traefik │   │   Odoo   │   │   PostgreSQL    │ │
+│  │  (proxy) │──▶│  (app)   │──▶│     (db)        │ │
+│  └──────────┘   └──────────┘   └─────────────────┘ │
+│                                       │             │
+│                 ┌─────────────────────┘             │
+│                 ▼                                   │
+│  ┌──────────────────────────┐                       │
+│  │  docker-volume-backup    │──▶ Google Drive       │
+│  └──────────────────────────┘                       │
+└─────────────────────────────────────────────────────┘
+         ▲
+         │ Tailscale VPN
+         │
+    Usuario remoto
+```
+
+| Componente | Tecnología |
+|---|---|
+| Aplicación | Odoo Community 18 |
+| Base de datos | PostgreSQL 15 |
+| Proxy / TLS | Traefik |
+| Backup | offen/docker-volume-backup → Google Drive |
+| Acceso remoto | Tailscale VPN |
+| CI/CD | GitHub Actions (self-hosted runner) |
+| OS servidor | Debian |
+
+---
+
+## Etapas de implementación
+
+- [x] Etapa 0 — Definición de arquitectura y contexto
+- [ ] Etapa 1 — Docker Compose en local (entorno de desarrollo)
+- [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
+- [ ] Etapa 3 — Despliegue en mini PC
+- [ ] Etapa 4 — Acceso remoto seguro y validación funcional
+- [ ] Etapa 5 — Resiliencia, backups y restauración
+
+---
+
+## Estructura del repositorio
+
+```
+.
+├── .claude/                    # Contexto y reglas para el asistente de desarrollo
+│   ├── CLAUDE.md
+│   └── rules/
+│       ├── commit-standards.md
+│       └── development-approach.md
+├── .github/
+│   └── workflows/
+│       └── deploy.yml          # Pipeline CI/CD (Etapa 2)
+├── odoo/
+│   └── config/
+│       └── odoo.conf           # Configuración de Odoo
+├── traefik/                    # Configuración del proxy (Etapa 1)
+├── backup/                     # Configuración del servicio de backup (Etapa 5)
+├── scripts/
+│   └── server-setup.sh         # Script de configuración inicial del servidor (Etapa 3)
+├── docker-compose.yml          # Stack principal
+├── docker-compose.override.yml # Overrides para desarrollo local
+└── .env.example                # Variables de entorno requeridas (sin valores reales)
+```
+
+> **Nota:** El archivo `.env` nunca se commitea. Copiar `.env.example` como `.env` y rellenar los valores antes de levantar el stack.
+
+---
+
+## Etapa 1 — Levantar en local
+
+> *Pendiente de documentar*
+
+---
+
+## Etapa 2 — Pipeline CI/CD
+
+> *Pendiente de documentar*
+
+---
+
+## Etapa 3 — Configuración del servidor
+
+> *Pendiente de documentar*
+
+---
+
+## Etapa 4 — Acceso remoto
+
+> *Pendiente de documentar*
+
+---
+
+## Etapa 5 — Backups y restauración
+
+> *Pendiente de documentar*
+
+---
+
+## Requisitos previos
+
+> *Pendiente de documentar*
+
+---
+
+## Licencia
+
+Copyright (c) Asociación. Todos los derechos reservados.
+Ver [LICENSE](LICENSE) para los términos completos.
