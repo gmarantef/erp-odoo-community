@@ -46,6 +46,7 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 - [x] Etapa 1.1 — Servicios Odoo + PostgreSQL levantados en local y acceso validado
 - [x] Etapa 1.2 — Configuración de módulos vía UI y persistencia verificada
 - [x] Etapa 1.3 — Configuración del servidor Odoo vía odoo.conf
+- [x] Etapa 1.4 — Healthcheck en PostgreSQL y arranque ordenado de servicios
 - [ ] Etapa 1 — Docker Compose en local (entorno de desarrollo)
 - [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 3 — Despliegue en mini PC
@@ -123,6 +124,10 @@ Parámetros configurados:
 - `workers = 0` — modo threading, adecuado para carga baja. Pendiente ajustar a `(#CPU * 2) + 1` cuando se confirme el hardware del mini PC
 - `max_cron_threads = 1`
 - Límites de memoria y tiempo documentados para cuando se active modo multiprocess
+
+### 1.4 — Healthcheck PostgreSQL y arranque ordenado ✓
+
+El servicio `db` incluye un healthcheck con `pg_isready` que verifica que PostgreSQL está listo para aceptar conexiones. El servicio `odoo` usa `depends_on: db: condition: service_healthy`, de modo que no arranca hasta que la base de datos esté operativa.
 
 ---
 
