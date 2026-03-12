@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  odoo:
+    image: odoo:18
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      HOST: db
+      USER: ${POSTGRES_USER}
+      PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - odoo_data:/var/lib/odoo
+    ports:
+      - "8069:8069"
+
+volumes:
+  postgres_data:
+  odoo_data:

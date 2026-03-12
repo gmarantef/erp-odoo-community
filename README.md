@@ -43,6 +43,7 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 ## Etapas de implementación
 
 - [x] Etapa 0 — Definición de arquitectura y contexto
+- [x] Etapa 1.1 — Servicios Odoo + PostgreSQL levantados en local y acceso validado
 - [ ] Etapa 1 — Docker Compose en local (entorno de desarrollo)
 - [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 3 — Despliegue en mini PC
@@ -81,7 +82,23 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 
 ## Etapa 1 — Levantar en local
 
-> *Pendiente de documentar*
+### 1.1 — Servicios Odoo + PostgreSQL ✓
+
+`docker-compose.yml` define dos servicios:
+- `db` — PostgreSQL 15 con volumen persistente `postgres_data`
+- `odoo` — Odoo 18 con volumen persistente `odoo_data`, expuesto en `localhost:8069`
+
+**Decisión clave:** `POSTGRES_DB=postgres` (no `odoo`). Si se pre-crea una base de datos vacía llamada `odoo`, Odoo la detecta, intenta usarla y falla porque no está inicializada. Con `postgres` como valor, Odoo muestra el asistente de creación de base de datos en el primer acceso y la inicializa correctamente.
+
+Para levantar:
+
+```bash
+cp .env.example .env
+# editar .env: cambiar POSTGRES_PASSWORD por un valor real
+docker compose up -d
+```
+
+Acceder a `http://localhost:8069` y completar el asistente de creación de base de datos.
 
 ---
 
