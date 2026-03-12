@@ -46,6 +46,7 @@ Referencia oficial: https://www.conventionalcommits.org/en/v1.0.0/
 - Máximo 72 caracteres en la primera línea
 - El body explica el **por qué**, no el qué
 - BREAKING CHANGE se indica en el footer con `BREAKING CHANGE: <descripción>`
+- NUNCA intriducir un Co-Authored-By: Claude
 
 ## Ejemplos válidos
 
