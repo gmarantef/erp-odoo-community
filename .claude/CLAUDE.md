@@ -11,20 +11,20 @@ Desplegado en un mini PC local como servidor, gestionado con Docker Compose.
 |---|---|
 | Odoo | Community v18 |
 | Base de datos | PostgreSQL (imagen oficial) |
-| Proxy | Traefik |
 | Backup | offen/docker-volume-backup + Google Drive (rclone) |
 | OS servidor | Debian |
 | CI/CD | GitHub Actions con self-hosted runner en el mini PC |
-| Acceso remoto | Tailscale VPN |
+| Acceso remoto | Tailscale VPN (con ACLs por grupo) |
 | Repositorio | GitHub |
+
+**Nota:** Traefik (proxy inverso) está documentado en el README como alternativa para acceso público, pero no forma parte del stack actual. El acceso a Odoo se gestiona directamente vía Tailscale con política de ACLs.
 
 ## Arquitectura Docker Compose
 
-Cuatro servicios:
+Tres servicios:
 1. `odoo` — imagen oficial `odoo:18`
 2. `db` — imagen oficial `postgres:15`
-3. `traefik` — proxy inverso + TLS
-4. `backup` — offen/docker-volume-backup con destino Google Drive
+3. `backup` — offen/docker-volume-backup con destino Google Drive
 
 Dos volúmenes persistentes:
 - `odoo_data` → filestore de Odoo
@@ -67,12 +67,13 @@ docker compose ps
 
 | Etapa | Descripción | Estado |
 |---|---|---|
-| 0 | Configuración inicial del servidor (OS, Docker, SSH, Tailscale) | Pendiente |
-| 1 | Docker Compose funcionando en local (host de desarrollo) | Pendiente |
-| 2 | Pipeline CI/CD con GitHub Actions y self-hosted runner | Pendiente |
-| 3 | Despliegue en mini PC y validación completa | Pendiente |
-| 4 | Acceso remoto seguro, seguridad y funcionalidades básicas | Pendiente |
-| 5 | Resiliencia: auto-restart, backups y restauración | Pendiente |
+| 0 | Definición de arquitectura y contexto | Completada |
+| 1 | Docker Compose funcionando en local (host de desarrollo) | Completada |
+| 2 | Servidor simulado con Vagrant + despliegue del stack en él | Pendiente |
+| 3 | Validación de acceso remoto vía Tailscale (desde dispositivo externo) | Pendiente |
+| 4 | Pipeline CI/CD con GitHub Actions y self-hosted runner | Pendiente |
+| 5 | Despliegue en mini PC real | Pendiente |
+| 6 | Resiliencia: auto-restart, backups y restauración | Pendiente |
 
 ## Módulos Odoo activos inicialmente
 
@@ -81,7 +82,6 @@ docker compose ps
 
 ## Decisiones pendientes de confirmar
 
-- [ ] Dominio/DDNS o estrategia de acceso remoto final (Tailscale vs exposición pública)
 - [ ] Hardware exacto del mini PC (CPU) para ajustar workers de Odoo
 
 ## Restricciones importantes

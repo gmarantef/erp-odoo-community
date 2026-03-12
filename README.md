@@ -7,32 +7,95 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 
 ## Arquitectura
 
+### Enfoque actual: acceso por Tailscale
+
+Todos los accesos al servidor pasan por Tailscale. La granularidad entre usuarios se gestiona mediante una política de acceso (ACL) en Tailscale:
+
+- **Usuarios ERP**: acceso únicamente al puerto 8069 (Odoo)
+- **Admins**: acceso completo al servidor (SSH + todos los puertos)
+
 ```
-┌─────────────────────────────────────────────────────┐
-│                     mini PC (Debian)                │
-│                                                     │
-│  ┌──────────┐   ┌──────────┐   ┌─────────────────┐ │
-│  │  Traefik │   │   Odoo   │   │   PostgreSQL    │ │
-│  │  (proxy) │──▶│  (app)   │──▶│     (db)        │ │
-│  └──────────┘   └──────────┘   └─────────────────┘ │
-│                                       │             │
-│                 ┌─────────────────────┘             │
-│                 ▼                                   │
-│  ┌──────────────────────────┐                       │
-│  │  docker-volume-backup    │──▶ Google Drive       │
-│  └──────────────────────────┘                       │
-└─────────────────────────────────────────────────────┘
-         ▲
-         │ Tailscale VPN
-         │
-    Usuario remoto
+        Tailscale (ACL: solo puerto 8069)
+       ┌─────────────────────────────────────────┐
+       │                                         ▼
+  Usuario ERP                  ┌─────────────────────────────────────────────┐
+                               │                mini PC (Debian)             │
+                               │                                             │
+  Admin                        │  ┌──────────┐     ┌─────────────────┐       │
+       │                       │  │   Odoo   │────▶│   PostgreSQL    │       │
+       └──── Tailscale ────────│─▶│  :8069   │     │     (db)        │       │
+             (SSH + todo)      │  └──────────┘     └─────────────────┘       │
+                               │        │                                    │
+                               │        ▼                                    │
+                               │  ┌──────────────────────────┐               │
+                               │  │  docker-volume-backup    │─▶ Google Drive│
+                               │  └──────────────────────────┘               │
+                               └─────────────────────────────────────────────┘
 ```
+
+Política de acceso Tailscale (ACL):
+
+```json
+{
+  "groups": {
+    "group:admins":   ["admin@asociacion.es"],
+    "group:usuarios": ["user1@asociacion.es", "user2@asociacion.es"]
+  },
+  "acls": [
+    { "action": "accept", "src": ["group:admins"],   "dst": ["minipc:*"]    },
+    { "action": "accept", "src": ["group:usuarios"], "dst": ["minipc:8069"] }
+  ]
+}
+```
+
+### Alternativa documentada: acceso público con proxy inverso
+
+En esta alternativa los usuarios ERP acceden al servidor a través de internet mediante un dominio, sin necesidad de instalar Tailscale. El acceso admin sigue siendo por Tailscale vía SSH.
+
+La granularidad es estructural: el router solo expone el puerto 443 a internet. El resto del servidor es inaccesible desde fuera de la Tailnet.
+
+**Flujo de un usuario ERP:**
+
+```
+Navegador
+    │
+    │  https://erp.asociacion.es
+    ▼
+  DNS
+    │  resuelve la IP pública del router
+    ▼
+Router (IP pública)
+    │  port forwarding: 443 → IP local del mini PC
+    ▼
+Traefik :443 (mini PC)
+    │  termina TLS (Let's Encrypt), enruta a Odoo
+    ▼
+Odoo :8069
+```
+
+**Flujo de un admin:**
+
+```
+Admin → Tailscale → SSH → mini PC
+```
+
+**Stack adicional necesario:**
+
+| Elemento | Detalle |
+|---|---|
+| Dominio | Nombre de dominio propio o DNS |
+| DNS | Registro apuntando a la IP pública del router |
+| Router | Port forwarding 443 → mini PC |
+| Traefik | Proxy inverso + TLS con Let's Encrypt |
+
+---
+
+### Componentes del stack
 
 | Componente | Tecnología |
 |---|---|
 | Aplicación | Odoo Community 18 |
 | Base de datos | PostgreSQL 15 |
-| Proxy / TLS | Traefik |
 | Backup | offen/docker-volume-backup → Google Drive |
 | Acceso remoto | Tailscale VPN |
 | CI/CD | GitHub Actions (self-hosted runner) |
@@ -49,10 +112,11 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 - [x] Etapa 1.4 — Healthcheck en PostgreSQL y arranque ordenado de servicios
 - [x] Etapa 1.5 — docker-compose.override.yml para separación dev/producción
 - [x] **Etapa 1 — Docker Compose en local (entorno de desarrollo)**
-- [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
-- [ ] Etapa 3 — Despliegue en mini PC
-- [ ] Etapa 4 — Acceso remoto seguro y validación funcional
-- [ ] Etapa 5 — Resiliencia, backups y restauración
+- [ ] **Etapa 2 — Servidor simulado con Vagrant y despliegue del stack**
+- [ ] **Etapa 3 — Validación de acceso remoto vía Tailscale**
+- [ ] Etapa 4 — Pipeline CI/CD con GitHub Actions
+- [ ] Etapa 5 — Despliegue en mini PC real
+- [ ] Etapa 6 — Resiliencia, backups y restauración
 
 ---
 
