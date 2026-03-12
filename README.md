@@ -47,7 +47,8 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 - [x] Etapa 1.2 — Configuración de módulos vía UI y persistencia verificada
 - [x] Etapa 1.3 — Configuración del servidor Odoo vía odoo.conf
 - [x] Etapa 1.4 — Healthcheck en PostgreSQL y arranque ordenado de servicios
-- [ ] Etapa 1 — Docker Compose en local (entorno de desarrollo)
+- [x] Etapa 1.5 — docker-compose.override.yml para separación dev/producción
+- [x] **Etapa 1 — Docker Compose en local (entorno de desarrollo)**
 - [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 3 — Despliegue en mini PC
 - [ ] Etapa 4 — Acceso remoto seguro y validación funcional
@@ -128,6 +129,12 @@ Parámetros configurados:
 ### 1.4 — Healthcheck PostgreSQL y arranque ordenado ✓
 
 El servicio `db` incluye un healthcheck con `pg_isready` que verifica que PostgreSQL está listo para aceptar conexiones. El servicio `odoo` usa `depends_on: db: condition: service_healthy`, de modo que no arranca hasta que la base de datos esté operativa.
+
+### 1.5 — Separación dev/producción con docker-compose.override.yml ✓
+
+El `docker-compose.yml` base es la configuración de producción: no expone puertos al host (Traefik gestionará el acceso en la Etapa 3).
+
+El `docker-compose.override.yml` añade lo necesario para desarrollo local — actualmente solo el mapeo del puerto 8069. Docker Compose lo fusiona automáticamente al ejecutar `docker compose up`, sin necesidad de flags adicionales.
 
 ---
 

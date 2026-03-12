@@ -28,8 +28,6 @@ services:
     volumes:
       - ./odoo/config/odoo.conf:/etc/odoo/odoo.conf:ro
       - odoo_data:/var/lib/odoo
-    ports:
-      - "8069:8069"
 
 volumes:
   postgres_data:

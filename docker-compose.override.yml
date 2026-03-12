@@ -1,0 +1,11 @@
+# Overrides para entorno de desarrollo local.
+# Este fichero se fusiona automáticamente con docker-compose.yml al ejecutar
+# `docker compose up`. NO commitear cambios locales temporales aquí.
+#
+# En producción (mini PC) este fichero no existe: Traefik gestiona el acceso
+# a Odoo internamente y el puerto 8069 no se expone al host.
+
+services:
+  odoo:
+    ports:
+      - "8069:8069"
