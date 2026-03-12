@@ -19,6 +19,7 @@ services:
       USER: ${POSTGRES_USER}
       PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
+      - ./odoo/config/odoo.conf:/etc/odoo/odoo.conf:ro
       - odoo_data:/var/lib/odoo
     ports:
       - "8069:8069"

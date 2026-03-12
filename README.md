@@ -45,6 +45,7 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 - [x] Etapa 0 — Definición de arquitectura y contexto
 - [x] Etapa 1.1 — Servicios Odoo + PostgreSQL levantados en local y acceso validado
 - [x] Etapa 1.2 — Configuración de módulos vía UI y persistencia verificada
+- [x] Etapa 1.3 — Configuración del servidor Odoo vía odoo.conf
 - [ ] Etapa 1 — Docker Compose en local (entorno de desarrollo)
 - [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 3 — Despliegue en mini PC
@@ -110,6 +111,18 @@ Toda la configuración (módulos instalados, datos creados, ajustes) se almacena
 **Verificado:** instalación del módulo Empleados (`hr`), creación y eliminación de registros, reinicio completo del stack — estado recuperado íntegramente.
 
 > El volumen se pierde únicamente si se ejecuta `docker compose down -v` o se borra manualmente. De ahí la criticidad del backup planificado en la Etapa 5.
+
+### 1.3 — Configuración del servidor Odoo ✓
+
+`odoo/config/odoo.conf` montado en el contenedor como `/etc/odoo/odoo.conf` (solo lectura).
+
+Parámetros configurados:
+- `addons_path` — las tres rutas que expone la imagen oficial (core, upgrades, extra-addons)
+- `log_level = info` + `logfile` vacío → logs a stdout, capturados por Docker
+- `proxy_mode = True` — necesario para cuando Traefik actúe como reverse proxy (Etapa 3)
+- `workers = 0` — modo threading, adecuado para carga baja. Pendiente ajustar a `(#CPU * 2) + 1` cuando se confirme el hardware del mini PC
+- `max_cron_threads = 1`
+- Límites de memoria y tiempo documentados para cuando se active modo multiprocess
 
 ---
 
