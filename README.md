@@ -44,6 +44,7 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 
 - [x] Etapa 0 — Definición de arquitectura y contexto
 - [x] Etapa 1.1 — Servicios Odoo + PostgreSQL levantados en local y acceso validado
+- [x] Etapa 1.2 — Configuración de módulos vía UI y persistencia verificada
 - [ ] Etapa 1 — Docker Compose en local (entorno de desarrollo)
 - [ ] Etapa 2 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 3 — Despliegue en mini PC
@@ -99,6 +100,16 @@ docker compose up -d
 ```
 
 Acceder a `http://localhost:8069` y completar el asistente de creación de base de datos.
+
+### 1.2 — Configuración de módulos y persistencia ✓
+
+Los módulos se instalan y configuran desde la UI de Odoo: **Apps → buscar módulo → Instalar**.
+
+Toda la configuración (módulos instalados, datos creados, ajustes) se almacena en PostgreSQL y persiste en el volumen `postgres_data`. Al reiniciar los contenedores con `docker compose down && docker compose up -d` el estado se recupera completamente sin ninguna intervención adicional.
+
+**Verificado:** instalación del módulo Empleados (`hr`), creación y eliminación de registros, reinicio completo del stack — estado recuperado íntegramente.
+
+> El volumen se pierde únicamente si se ejecuta `docker compose down -v` o se borra manualmente. De ahí la criticidad del backup planificado en la Etapa 5.
 
 ---
 
