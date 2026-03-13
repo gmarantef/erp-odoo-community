@@ -280,8 +280,8 @@ Los datos se pierden únicamente con `vagrant destroy`, equivalente a formatear 
 Se crea una cuenta Tailscale (tailnet personal). Los dispositivos se conectan vía SSO (Google/GitHub). El servidor se conecta mediante **auth key** para evitar autenticación interactiva.
 
 Dispositivos del tailnet:
-- `guillermo-personal-desktop` — host de desarrollo y administración (admin)
-- `pixel-6a` — móvil de prueba (conectado como admin para esta etapa; ver nota más abajo)
+- Desktop personal — host de desarrollo y administración (admin)
+- Móvil Android — dispositivo de prueba (conectado como admin para esta etapa; ver nota más abajo)
 - VM / servidor — conectado con auth key y `tag:server`
 
 ### 3.2 — Política de acceso (ACL) ✓
