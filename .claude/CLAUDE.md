@@ -69,7 +69,7 @@ docker compose ps
 | 0 | Definición de arquitectura y contexto | Completada |
 | 1 | Docker Compose funcionando en local (host de desarrollo) | Completada |
 | 2 | Servidor simulado con Vagrant + despliegue del stack en él | Completada |
-| 3 | Validación de acceso remoto vía Tailscale (desde dispositivo externo) | Pendiente |
+| 3 | Validación de acceso remoto vía Tailscale (desde dispositivo externo) | Completada |
 | 4 | Pipeline CI/CD con GitHub Actions y self-hosted runner | Pendiente |
 | 5 | Despliegue en mini PC real | Pendiente |
 | 6 | Resiliencia: auto-restart, backups y restauración | Pendiente |

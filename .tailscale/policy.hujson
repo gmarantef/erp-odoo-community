@@ -1,0 +1,31 @@
+// Política de acceso Tailscale (ACL) del tailnet del ERP.
+//
+// Dispositivos:
+//   tag:server   — servidor Odoo (VM o mini PC). Autenticado con auth key.
+//   tag:erp-user — usuarios del ERP (solo acceso al puerto 8069). Autenticado con auth key.
+//   autogroup:admin — administradores del tailnet (acceso completo).
+//
+// Nota: los dispositivos Android no admiten autenticación con auth key.
+// Los usuarios ERP con dispositivo Android se incorporarán invitándoles al tailnet
+// con una cuenta propia restringida al grupo tag:erp-user.
+{
+    "tagOwners": {
+        "tag:server":   ["autogroup:admin"],
+        "tag:erp-user": ["autogroup:admin"]
+    },
+
+    "grants": [
+        // Admins: acceso completo al servidor
+        {
+            "src": ["autogroup:admin"],
+            "dst": ["tag:server"],
+            "ip":  ["*"]
+        },
+        // Usuarios ERP: solo puerto 8069 (Odoo)
+        {
+            "src": ["tag:erp-user"],
+            "dst": ["tag:server"],
+            "ip":  ["tcp:8069"]
+        }
+    ]
+}

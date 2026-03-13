@@ -33,18 +33,26 @@ Todos los accesos al servidor pasan por Tailscale. La granularidad entre usuario
                                └─────────────────────────────────────────────┘
 ```
 
-Política de acceso Tailscale (ACL):
+Política de acceso Tailscale (ver [`.tailscale/policy.hujson`](.tailscale/policy.hujson)):
 
 ```json
 {
-  "groups": {
-    "group:admins":   ["admin@asociacion.es"],
-    "group:usuarios": ["user1@asociacion.es", "user2@asociacion.es"]
-  },
-  "acls": [
-    { "action": "accept", "src": ["group:admins"],   "dst": ["minipc:*"]    },
-    { "action": "accept", "src": ["group:usuarios"], "dst": ["minipc:8069"] }
-  ]
+    "tagOwners": {
+        "tag:server":   ["autogroup:admin"],
+        "tag:erp-user": ["autogroup:admin"]
+    },
+    "grants": [
+        {
+            "src": ["autogroup:admin"],
+            "dst": ["tag:server"],
+            "ip":  ["*"]
+        },
+        {
+            "src": ["tag:erp-user"],
+            "dst": ["tag:server"],
+            "ip":  ["tcp:8069"]
+        }
+    ]
 }
 ```
 
@@ -117,7 +125,7 @@ Admin → Tailscale → SSH → mini PC
 - [x] Etapa 2.3 — Stack desplegado en la VM y acceso validado desde el host
 - [x] Etapa 2.4 — Persistencia verificada tras halt/up de la VM
 - [x] **Etapa 2 — Servidor simulado con Vagrant y despliegue del stack**
-- [ ] **Etapa 3 — Validación de acceso remoto vía Tailscale**
+- [x] **Etapa 3 — Validación de acceso remoto vía Tailscale**
 - [ ] Etapa 4 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 5 — Despliegue en mini PC real
 - [ ] Etapa 6 — Resiliencia, backups y restauración
@@ -138,6 +146,8 @@ Admin → Tailscale → SSH → mini PC
 │   └── config/
 │       └── odoo.conf           # Configuración de Odoo
 ├── backup/                     # Configuración del servicio de backup (Etapa 6)
+├── .tailscale/
+│   └── policy.hujson           # Política de acceso Tailscale (ACL)
 ├── docker-compose.yml          # Stack principal
 ├── Vagrantfile                 # VM para servidor simulado (Etapa 2)
 └── .env.example                # Variables de entorno requeridas (sin valores reales)
@@ -265,7 +275,44 @@ Los datos se pierden únicamente con `vagrant destroy`, equivalente a formatear 
 
 ## Etapa 3 — Acceso remoto vía Tailscale
 
-> *Pendiente de documentar*
+### 3.1 — Cuenta Tailscale y dispositivos conectados ✓
+
+Se crea una cuenta Tailscale (tailnet personal). Los dispositivos se conectan vía SSO (Google/GitHub). El servidor se conecta mediante **auth key** para evitar autenticación interactiva.
+
+Dispositivos del tailnet:
+- `guillermo-personal-desktop` — host de desarrollo y administración (admin)
+- `pixel-6a` — móvil de prueba (conectado como admin para esta etapa; ver nota más abajo)
+- VM / servidor — conectado con auth key y `tag:server`
+
+### 3.2 — Política de acceso (ACL) ✓
+
+La política se define antes de generar la auth key del servidor, ya que el tag debe existir en la política para poder asignarlo. Archivo versionado en [`.tailscale/policy.hujson`](.tailscale/policy.hujson).
+
+Dos tags:
+- `tag:server` — dispositivos servidor. Accesibles desde admins en cualquier puerto y desde `tag:erp-user` solo en el 8069.
+- `tag:erp-user` — usuarios ERP. Solo pueden iniciar conexiones al puerto 8069 del servidor.
+
+Aplicar: copiar el contenido del archivo y pegarlo en `login.tailscale.com/admin/acls`.
+
+### 3.3 — Conexión del servidor al tailnet ✓
+
+El Vagrantfile ya instala Tailscale en la VM. Para conectarla al tailnet:
+
+```bash
+# Generar auth key en: login.tailscale.com/admin/settings/keys
+# Opciones: reusable, no ephemeral, pre-approved, tag: tag:server
+
+# Dentro de la VM
+sudo tailscale up --auth-key=<auth-key>
+```
+
+La VM aparece en el tailnet con `tag:server` y recibe una IP fija `100.x.x.x`.
+
+### 3.4 — Validación de acceso remoto ✓
+
+Acceso verificado desde el móvil (Pixel 6a) con datos móviles (fuera de la red local) a `http://<IP-tailscale-VM>:8069`. Odoo responde correctamente a través de la VPN.
+
+**Nota sobre `tag:erp-user`:** La app Tailscale en Android no admite autenticación con auth key, solo SSO. Por tanto no es posible etiquetar un dispositivo personal como `tag:erp-user` sin una segunda cuenta. La política está definida y lista; la validación de acceso restringido se realizará en Etapa 5 cuando los usuarios reales de la asociación se incorporen al tailnet con sus propias cuentas.
 
 ---
 
