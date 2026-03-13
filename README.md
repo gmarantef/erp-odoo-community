@@ -125,8 +125,17 @@ Admin → Tailscale → SSH → mini PC
 - [x] Etapa 2.3 — Stack desplegado en la VM y acceso validado desde el host
 - [x] Etapa 2.4 — Persistencia verificada tras halt/up de la VM
 - [x] **Etapa 2 — Servidor simulado con Vagrant y despliegue del stack**
+- [x] Etapa 3.1 — Cuenta Tailscale y dispositivos conectados al tailnet
+- [x] Etapa 3.2 — Política de acceso (ACL) con tag:server y tag:erp-user
+- [x] Etapa 3.3 — Conexión del servidor al tailnet con auth key
+- [x] Etapa 3.4 — Validación de acceso remoto desde dispositivo externo
 - [x] **Etapa 3 — Validación de acceso remoto vía Tailscale**
-- [ ] Etapa 4 — Pipeline CI/CD con GitHub Actions
+- [x] Etapa 4.1 — Política Tailscale actualizada con tag:ci (acceso SSH al servidor)
+- [x] Etapa 4.2 — OAuth client en Tailscale (setup manual, ver sección 4.2)
+- [x] Etapa 4.3 — Clave SSH dedicada para el CI (setup manual, ver sección 4.3)
+- [x] Etapa 4.4 — Secretos configurados en GitHub (setup manual, ver sección 4.4)
+- [x] Etapa 4.5 — Workflow deploy.yml creado
+- [x] **Etapa 4 — Pipeline CI/CD con GitHub Actions**
 - [ ] Etapa 5 — Despliegue en mini PC real
 - [ ] Etapa 6 — Resiliencia, backups y restauración
 
@@ -318,7 +327,70 @@ Acceso verificado desde el móvil (Pixel 6a) con datos móviles (fuera de la red
 
 ## Etapa 4 — Pipeline CI/CD
 
-> *Pendiente de documentar*
+### Diseño
+
+Cada push a `main` lanza un workflow de GitHub Actions que conecta el runner temporalmente al tailnet de Tailscale para desplegar en el servidor vía SSH.
+
+```
+push to main
+    │
+    ▼
+[GitHub runner ubuntu-latest]
+    ├── actions/checkout@v4
+    ├── tailscale/github-action@v4  →  nodo efímero tag:ci se une al tailnet
+    ├── tailscale ping $SERVER_HOST  →  verifica conectividad (hasta 3 min)
+    ├── SSH al servidor (IP Tailscale)
+    │     ├── git pull
+    │     ├── regenerar .env desde secrets de GitHub
+    │     └── docker compose up -d --remove-orphans
+    └── nodo efímero se destruye automáticamente
+```
+
+El runner nunca es accesible desde internet: solo existe en el tailnet durante la ejecución del job. El acceso al servidor está limitado al puerto 22 mediante la política ACL (`tag:ci` → `tag:server` → `tcp:22`).
+
+### 4.1 — Actualización de la política Tailscale ✓
+
+Se añade `tag:ci` para los nodos efímeros del runner. El tag está definido en [`.tailscale/policy.hujson`](.tailscale/policy.hujson) con acceso exclusivo al puerto 22 del servidor.
+
+Aplicar la política actualizada: copiar el contenido del archivo y pegarlo en `login.tailscale.com/admin/acls`.
+
+### 4.2 — OAuth client en Tailscale
+
+En `login.tailscale.com/admin/settings/oauth-clients`, crear un OAuth client con el scope **Auth Keys → Write**.
+
+Guardar el Client ID y el Client secret — solo se muestran una vez.
+
+### 4.3 — Clave SSH dedicada para el CI
+
+Generar un par de claves exclusivo para el runner (no reutilizar la deploy key del repositorio):
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/github_actions -N ""
+```
+
+Añadir la clave pública al servidor:
+
+```bash
+# Dentro del servidor
+echo "<contenido de github_actions.pub>" >> ~/.ssh/authorized_keys
+```
+
+### 4.4 — Secretos en GitHub
+
+En el repositorio → **Settings → Secrets and variables → Actions**, añadir:
+
+| Secret | Valor |
+|---|---|
+| `TS_OAUTH_CLIENT_ID` | Client ID del OAuth client de Tailscale |
+| `TS_OAUTH_SECRET` | Client secret del OAuth client de Tailscale |
+| `SSH_PRIVATE_KEY` | Contenido de `~/.ssh/github_actions` (clave privada) |
+| `SERVER_HOST` | IP Tailscale del servidor (`100.x.x.x`) |
+| `SERVER_USER` | Usuario SSH en el servidor (ej: `vagrant`) |
+| `POSTGRES_PASSWORD` | Contraseña de PostgreSQL |
+
+### 4.5 — Workflow ✓
+
+El archivo [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) define el pipeline completo. Se activa automáticamente en cada push a `main`.
 
 ---
 
