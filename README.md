@@ -110,9 +110,13 @@ Admin → Tailscale → SSH → mini PC
 - [x] Etapa 1.2 — Configuración de módulos vía UI y persistencia verificada
 - [x] Etapa 1.3 — Configuración del servidor Odoo vía odoo.conf
 - [x] Etapa 1.4 — Healthcheck en PostgreSQL y arranque ordenado de servicios
-- [x] Etapa 1.5 — docker-compose.override.yml para separación dev/producción
+- [x] Etapa 1.5 — Puerto 8069 en base compose, acceso delegado a Tailscale ACLs
 - [x] **Etapa 1 — Docker Compose en local (entorno de desarrollo)**
-- [ ] **Etapa 2 — Servidor simulado con Vagrant y despliegue del stack**
+- [x] Etapa 2.1 — VM Debian 12 con Vagrant + libvirt, Docker y Tailscale provisionados
+- [x] Etapa 2.2 — Deploy key SSH configurada, repositorio clonado en la VM
+- [x] Etapa 2.3 — Stack desplegado en la VM y acceso validado desde el host
+- [x] Etapa 2.4 — Persistencia verificada tras halt/up de la VM
+- [x] **Etapa 2 — Servidor simulado con Vagrant y despliegue del stack**
 - [ ] **Etapa 3 — Validación de acceso remoto vía Tailscale**
 - [ ] Etapa 4 — Pipeline CI/CD con GitHub Actions
 - [ ] Etapa 5 — Despliegue en mini PC real
@@ -128,19 +132,14 @@ Admin → Tailscale → SSH → mini PC
 │   ├── CLAUDE.md
 │   └── rules/
 │       ├── commit-standards.md
-│       └── development-approach.md
-├── .github/
-│   └── workflows/
-│       └── deploy.yml          # Pipeline CI/CD (Etapa 2)
+│       ├── development-approach.md
+│       └── error-solving.md
 ├── odoo/
 │   └── config/
 │       └── odoo.conf           # Configuración de Odoo
-├── traefik/                    # Configuración del proxy (Etapa 1)
-├── backup/                     # Configuración del servicio de backup (Etapa 5)
-├── scripts/
-│   └── server-setup.sh         # Script de configuración inicial del servidor (Etapa 3)
+├── backup/                     # Configuración del servicio de backup (Etapa 6)
 ├── docker-compose.yml          # Stack principal
-├── docker-compose.override.yml # Overrides para desarrollo local
+├── Vagrantfile                 # VM para servidor simulado (Etapa 2)
 └── .env.example                # Variables de entorno requeridas (sin valores reales)
 ```
 
@@ -148,13 +147,13 @@ Admin → Tailscale → SSH → mini PC
 
 ---
 
-## Etapa 1 — Levantar en local
+## Etapa 1 — Docker Compose en local
 
 ### 1.1 — Servicios Odoo + PostgreSQL ✓
 
 `docker-compose.yml` define dos servicios:
 - `db` — PostgreSQL 15 con volumen persistente `postgres_data`
-- `odoo` — Odoo 18 con volumen persistente `odoo_data`, expuesto en `localhost:8069`
+- `odoo` — Odoo 18 con volumen persistente `odoo_data`, expuesto en el puerto 8069
 
 **Decisión clave:** `POSTGRES_DB=postgres` (no `odoo`). Si se pre-crea una base de datos vacía llamada `odoo`, Odoo la detecta, intenta usarla y falla porque no está inicializada. Con `postgres` como valor, Odoo muestra el asistente de creación de base de datos en el primer acceso y la inicializa correctamente.
 
@@ -176,7 +175,7 @@ Toda la configuración (módulos instalados, datos creados, ajustes) se almacena
 
 **Verificado:** instalación del módulo Empleados (`hr`), creación y eliminación de registros, reinicio completo del stack — estado recuperado íntegramente.
 
-> El volumen se pierde únicamente si se ejecuta `docker compose down -v` o se borra manualmente. De ahí la criticidad del backup planificado en la Etapa 5.
+> El volumen se pierde únicamente si se ejecuta `docker compose down -v` o se borra manualmente. De ahí la criticidad del backup planificado en la Etapa 6.
 
 ### 1.3 — Configuración del servidor Odoo ✓
 
@@ -185,7 +184,7 @@ Toda la configuración (módulos instalados, datos creados, ajustes) se almacena
 Parámetros configurados:
 - `addons_path` — las tres rutas que expone la imagen oficial (core, upgrades, extra-addons)
 - `log_level = info` + `logfile` vacío → logs a stdout, capturados por Docker
-- `proxy_mode = True` — necesario para cuando Traefik actúe como reverse proxy (Etapa 3)
+- `proxy_mode = True` — preparado para si en el futuro se añade Traefik como proxy inverso
 - `workers = 0` — modo threading, adecuado para carga baja. Pendiente ajustar a `(#CPU * 2) + 1` cuando se confirme el hardware del mini PC
 - `max_cron_threads = 1`
 - Límites de memoria y tiempo documentados para cuando se active modo multiprocess
@@ -194,39 +193,95 @@ Parámetros configurados:
 
 El servicio `db` incluye un healthcheck con `pg_isready` que verifica que PostgreSQL está listo para aceptar conexiones. El servicio `odoo` usa `depends_on: db: condition: service_healthy`, de modo que no arranca hasta que la base de datos esté operativa.
 
-### 1.5 — Separación dev/producción con docker-compose.override.yml ✓
+### 1.5 — Puerto 8069 en base compose ✓
 
-El `docker-compose.yml` base es la configuración de producción: no expone puertos al host (Traefik gestionará el acceso en la Etapa 3).
-
-El `docker-compose.override.yml` añade lo necesario para desarrollo local — actualmente solo el mapeo del puerto 8069. Docker Compose lo fusiona automáticamente al ejecutar `docker compose up`, sin necesidad de flags adicionales.
+El puerto 8069 se expone directamente en `docker-compose.yml`. El control de acceso se delega a las ACLs de Tailscale a nivel de red, no al binding de puertos. No existe fichero override — si en el futuro se necesitan overrides de desarrollo, se crea en ese momento.
 
 ---
 
-## Etapa 2 — Pipeline CI/CD
+## Etapa 2 — Servidor simulado con Vagrant
+
+### 2.1 — VM Debian 12 con Vagrant ✓
+
+`Vagrantfile` en la raíz del repositorio define una VM Debian 12 (bookworm) con provider libvirt:
+- 2 CPUs, 2 GB RAM
+- Docker + Docker Compose plugin provisionados automáticamente (método oficial Docker para Debian)
+- Tailscale instalado automáticamente
+- Carpeta sincronizada deshabilitada — el despliegue se gestiona vía SSH
+
+Para levantar la VM:
+
+```bash
+vagrant up       # crea y provisiona la VM
+vagrant ssh      # acceso SSH a la VM
+vagrant halt     # apagar la VM (los datos persisten)
+vagrant destroy  # eliminar la VM y su disco
+```
+
+### 2.2 — Deploy key SSH ✓
+
+El acceso al repositorio privado desde el servidor se gestiona mediante una Deploy Key SSH, que es la práctica estándar para servidores permanentes.
+
+```bash
+# Dentro de la VM
+ssh-keygen -t ed25519 -C "odoo-server" -f ~/.ssh/github_deploy -N ""
+cat ~/.ssh/github_deploy.pub
+# → añadir en GitHub: repo → Settings → Deploy keys
+```
+
+Configuración SSH en la VM (`~/.ssh/config`):
+
+```
+Host github.com
+  IdentityFile ~/.ssh/github_deploy
+  IdentitiesOnly yes
+```
+
+### 2.3 — Despliegue del stack ✓
+
+```bash
+# Dentro de la VM
+git clone git@github.com:USUARIO/REPO.git ~/erp
+cd ~/erp
+cp .env.example .env
+# editar .env con los valores reales
+nano .env
+docker compose up -d
+```
+
+Odoo accesible desde el host en `http://<IP-VM>:8069` (la IP de la interfaz libvirt, visible con `hostname -I` dentro de la VM).
+
+### 2.4 — Persistencia verificada ✓
+
+Los volúmenes Docker (`postgres_data`, `odoo_data`) persisten entre reinicios de la VM:
+
+```bash
+vagrant halt && vagrant up  # los datos del ERP se mantienen
+```
+
+Los datos se pierden únicamente con `vagrant destroy`, equivalente a formatear el disco del servidor.
+
+---
+
+## Etapa 3 — Acceso remoto vía Tailscale
 
 > *Pendiente de documentar*
 
 ---
 
-## Etapa 3 — Configuración del servidor
+## Etapa 4 — Pipeline CI/CD
 
 > *Pendiente de documentar*
 
 ---
 
-## Etapa 4 — Acceso remoto
+## Etapa 5 — Despliegue en mini PC real
 
 > *Pendiente de documentar*
 
 ---
 
-## Etapa 5 — Backups y restauración
-
-> *Pendiente de documentar*
-
----
-
-## Requisitos previos
+## Etapa 6 — Resiliencia, backups y restauración
 
 > *Pendiente de documentar*
 

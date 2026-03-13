@@ -34,8 +34,7 @@ Dos volúmenes persistentes:
 
 - **Variables sensibles** siempre en `.env`, nunca hardcodeadas. `.env` está en `.gitignore`
 - Mantener `.env.example` actualizado con todas las variables necesarias (sin valores reales)
-- Un `docker-compose.override.yml` para configuración local de desarrollo
-- No modificar `docker-compose.yml` base para configuraciones locales; usar el override
+- No existe `docker-compose.override.yml` — el puerto 8069 está en el base compose; si se necesitan overrides de dev en el futuro, se crea en ese momento
 - Ver `.claude/rules/` para estándares de commits y enfoque de desarrollo
 
 ## Comandos habituales
@@ -69,7 +68,7 @@ docker compose ps
 |---|---|---|
 | 0 | Definición de arquitectura y contexto | Completada |
 | 1 | Docker Compose funcionando en local (host de desarrollo) | Completada |
-| 2 | Servidor simulado con Vagrant + despliegue del stack en él | Pendiente |
+| 2 | Servidor simulado con Vagrant + despliegue del stack en él | Completada |
 | 3 | Validación de acceso remoto vía Tailscale (desde dispositivo externo) | Pendiente |
 | 4 | Pipeline CI/CD con GitHub Actions y self-hosted runner | Pendiente |
 | 5 | Despliegue en mini PC real | Pendiente |
