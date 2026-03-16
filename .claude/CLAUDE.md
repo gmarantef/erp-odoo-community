@@ -3,7 +3,7 @@
 ## Contexto del proyecto
 
 ERP basado en Odoo Community para una asociación española pequeña (<20 usuarios, <10 simultáneos).
-Desplegado en un mini PC local como servidor, gestionado con Docker Compose.
+Desplegado en VPS Hetzner Cloud (CPX22, escalable a CPX32), gestionado con Docker Compose.
 
 ## Stack técnico
 
@@ -13,7 +13,8 @@ Desplegado en un mini PC local como servidor, gestionado con Docker Compose.
 | Base de datos | PostgreSQL (imagen oficial) |
 | Backup | offen/docker-volume-backup + Google Drive (rclone) |
 | OS servidor | Debian |
-| CI/CD | GitHub Actions con self-hosted runner en el mini PC |
+| Servidor | Hetzner Cloud CPX22 (escalable a CPX32) |
+| CI/CD | GitHub Actions con runner alojado en GitHub |
 | Acceso remoto | Tailscale VPN (con ACLs por grupo) |
 | Repositorio | GitHub |
 
@@ -70,8 +71,8 @@ docker compose ps
 | 1 | Docker Compose funcionando en local (host de desarrollo) | Completada |
 | 2 | Servidor simulado con Vagrant + despliegue del stack en él | Completada |
 | 3 | Validación de acceso remoto vía Tailscale (desde dispositivo externo) | Completada |
-| 4 | Pipeline CI/CD con GitHub Actions y self-hosted runner | Pendiente |
-| 5 | Despliegue en mini PC real | Pendiente |
+| 4 | Pipeline CI/CD con GitHub Actions | Completada |
+| 5 | Despliegue en VPS Hetzner Cloud | Pendiente |
 | 6 | Resiliencia: auto-restart, backups y restauración | Pendiente |
 
 ## Módulos Odoo activos inicialmente
@@ -81,7 +82,7 @@ docker compose ps
 
 ## Decisiones pendientes de confirmar
 
-- [ ] Hardware exacto del mini PC (CPU) para ajustar workers de Odoo
+- [ ] Activar `workers = 5` en odoo.conf al desplegar en el CPX22 (2 vCPUs → (2*2)+1 = 5)
 
 ## Restricciones importantes
 

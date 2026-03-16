@@ -1,7 +1,7 @@
 # ERP Odoo Community
 
 ERP basado en Odoo Community 18 para uso interno de la asociación.
-Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto seguro vía VPN.
+Desplegado en VPS Hetzner Cloud (CPX22) mediante Docker Compose con acceso remoto seguro vía VPN.
 
 ---
 
@@ -12,19 +12,19 @@ Desplegado en servidor local (mini PC) mediante Docker Compose con acceso remoto
 Todos los accesos al servidor pasan por Tailscale. La granularidad entre usuarios se gestiona mediante una política de acceso (ACL) en Tailscale:
 
 - **Usuarios ERP**: acceso únicamente al puerto 8069 (Odoo)
-- **Admins**: acceso completo al servidor (SSH + todos los puertos)
+- **Admins**: acceso completo al servidor (Tailscale SSH + todos los puertos)
 
 ```
         Tailscale (ACL: solo puerto 8069)
        ┌─────────────────────────────────────────┐
        │                                         ▼
   Usuario ERP                  ┌─────────────────────────────────────────────┐
-                               │                mini PC (Debian)             │
+                               │            VPS Hetzner (Debian)             │
                                │                                             │
   Admin                        │  ┌──────────┐     ┌─────────────────┐       │
        │                       │  │   Odoo   │────▶│   PostgreSQL    │       │
-       └──── Tailscale ────────│─▶│  :8069   │     │     (db)        │       │
-             (SSH + todo)      │  └──────────┘     └─────────────────┘       │
+       └──── Tailscale SSH ────│─▶│  :8069   │     │     (db)        │       │
+             (admins)          │  └──────────┘     └─────────────────┘       │
                                │        │                                    │
                                │        ▼                                    │
                                │  ┌──────────────────────────┐               │
@@ -39,18 +39,20 @@ Política de acceso Tailscale (ver [`.tailscale/policy.hujson`](.tailscale/polic
 {
     "tagOwners": {
         "tag:server":   ["autogroup:admin"],
-        "tag:erp-user": ["autogroup:admin"]
+        "tag:erp-user": ["autogroup:admin"],
+        "tag:ci":       ["autogroup:admin"]
     },
     "grants": [
+        { "src": ["autogroup:admin"], "dst": ["tag:server"], "ip": ["*"] },
+        { "src": ["tag:erp-user"],    "dst": ["tag:server"], "ip": ["tcp:8069"] },
+        { "src": ["tag:ci"],          "dst": ["tag:server"], "ip": ["tcp:22"] }
+    ],
+    "ssh": [
         {
-            "src": ["autogroup:admin"],
-            "dst": ["tag:server"],
-            "ip":  ["*"]
-        },
-        {
-            "src": ["tag:erp-user"],
-            "dst": ["tag:server"],
-            "ip":  ["tcp:8069"]
+            "action": "accept",
+            "src":    ["autogroup:admin"],
+            "dst":    ["tag:server"],
+            "users":  ["root", "autogroup:nonroot"]
         }
     ]
 }
@@ -58,9 +60,9 @@ Política de acceso Tailscale (ver [`.tailscale/policy.hujson`](.tailscale/polic
 
 ### Alternativa documentada: acceso público con proxy inverso
 
-En esta alternativa los usuarios ERP acceden al servidor a través de internet mediante un dominio, sin necesidad de instalar Tailscale. El acceso admin sigue siendo por Tailscale vía SSH.
+En esta alternativa los usuarios ERP acceden al servidor a través de internet mediante un dominio, sin necesidad de instalar Tailscale. El acceso admin sigue siendo por Tailscale SSH.
 
-La granularidad es estructural: el router solo expone el puerto 443 a internet. El resto del servidor es inaccesible desde fuera de la Tailnet.
+Con un VPS la granularidad es aún más sencilla: no hay router ni port forwarding, el VPS tiene IP pública directa. Solo se expone el puerto 443 al público.
 
 **Flujo de un usuario ERP:**
 
@@ -70,12 +72,9 @@ Navegador
     │  https://erp.asociacion.es
     ▼
   DNS
-    │  resuelve la IP pública del router
+    │  resuelve la IP pública del VPS
     ▼
-Router (IP pública)
-    │  port forwarding: 443 → IP local del mini PC
-    ▼
-Traefik :443 (mini PC)
+Traefik :443 (VPS)
     │  termina TLS (Let's Encrypt), enruta a Odoo
     ▼
 Odoo :8069
@@ -84,7 +83,7 @@ Odoo :8069
 **Flujo de un admin:**
 
 ```
-Admin → Tailscale → SSH → mini PC
+Admin → Tailscale SSH → VPS
 ```
 
 **Stack adicional necesario:**
@@ -92,8 +91,7 @@ Admin → Tailscale → SSH → mini PC
 | Elemento | Detalle |
 |---|---|
 | Dominio | Nombre de dominio propio o DNS |
-| DNS | Registro apuntando a la IP pública del router |
-| Router | Port forwarding 443 → mini PC |
+| DNS | Registro apuntando a la IP pública del VPS |
 | Traefik | Proxy inverso + TLS con Let's Encrypt |
 
 ---
@@ -106,8 +104,9 @@ Admin → Tailscale → SSH → mini PC
 | Base de datos | PostgreSQL 15 |
 | Backup | offen/docker-volume-backup → Google Drive |
 | Acceso remoto | Tailscale VPN |
-| CI/CD | GitHub Actions (self-hosted runner) |
-| OS servidor | Debian |
+| CI/CD | GitHub Actions (runner alojado en GitHub) |
+| OS servidor | Debian 12 |
+| Servidor | Hetzner Cloud CPX22 (escalable a CPX32) |
 
 ---
 
@@ -136,7 +135,15 @@ Admin → Tailscale → SSH → mini PC
 - [x] Etapa 4.4 — Secretos configurados en GitHub (setup manual, ver sección 4.4)
 - [x] Etapa 4.5 — Workflow deploy.yml creado
 - [x] **Etapa 4 — Pipeline CI/CD con GitHub Actions**
-- [ ] Etapa 5 — Despliegue en mini PC real
+- [ ] Etapa 5.1 — VPS CPX22 creado en Hetzner con Debian 12
+- [ ] Etapa 5.2 — Docker instalado en el VPS
+- [ ] Etapa 5.3 — Tailscale instalado, nodo conectado al tailnet con tag:server
+- [ ] Etapa 5.4 — Tailscale SSH activado en el VPS
+- [ ] Etapa 5.5 — Hetzner Firewall configurado (puerto 22 cerrado al público)
+- [ ] Etapa 5.6 — Clave SSH del CI añadida al VPS
+- [ ] Etapa 5.7 — Secretos de GitHub actualizados (SERVER_HOST, SERVER_USER)
+- [ ] Etapa 5.8 — Primer despliegue automático validado
+- [ ] **Etapa 5 — Despliegue en VPS Hetzner**
 - [ ] Etapa 6 — Resiliencia, backups y restauración
 
 ---
@@ -204,7 +211,7 @@ Parámetros configurados:
 - `addons_path` — las tres rutas que expone la imagen oficial (core, upgrades, extra-addons)
 - `log_level = info` + `logfile` vacío → logs a stdout, capturados por Docker
 - `proxy_mode = True` — preparado para si en el futuro se añade Traefik como proxy inverso
-- `workers = 0` — modo threading, adecuado para carga baja. Pendiente ajustar a `(#CPU * 2) + 1` cuando se confirme el hardware del mini PC
+- `workers = 0` — modo threading, adecuado para desarrollo. Para producción en CPX22 (2 vCPUs): `workers = 5`. Se activará en Etapa 5.
 - `max_cron_threads = 1`
 - Límites de memoria y tiempo documentados para cuando se active modo multiprocess
 
@@ -368,10 +375,10 @@ Generar un par de claves exclusivo para el runner (no reutilizar la deploy key d
 ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/github_actions -N ""
 ```
 
-Añadir la clave pública al servidor:
+Añadir la clave pública al VPS (paso de Etapa 5):
 
 ```bash
-# Dentro del servidor
+# Dentro del VPS
 echo "<contenido de github_actions.pub>" >> ~/.ssh/authorized_keys
 ```
 
@@ -385,7 +392,7 @@ En el repositorio → **Settings → Secrets and variables → Actions**, añadi
 | `TS_OAUTH_SECRET` | Client secret del OAuth client de Tailscale |
 | `SSH_PRIVATE_KEY` | Contenido de `~/.ssh/github_actions` (clave privada) |
 | `SERVER_HOST` | IP Tailscale del servidor (`100.x.x.x`) |
-| `SERVER_USER` | Usuario SSH en el servidor (ej: `vagrant`) |
+| `SERVER_USER` | Usuario SSH en el VPS (ej: `debian`) |
 | `POSTGRES_PASSWORD` | Contraseña de PostgreSQL |
 
 ### 4.5 — Workflow ✓
@@ -394,9 +401,114 @@ El archivo [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) define
 
 ---
 
-## Etapa 5 — Despliegue en mini PC real
+## Etapa 5 — Despliegue en VPS Hetzner
 
-> *Pendiente de documentar*
+### 5.1 — Crear el VPS en Hetzner
+
+En la consola de Hetzner Cloud (`console.hetzner.cloud`), crear un nuevo servidor con:
+
+- **Imagen**: Debian 12
+- **Tipo**: CPX22 (escalable a CPX32 si se requiere más capacidad)
+- **Región**: Falkenstein o Nuremberg (EU, baja latencia desde España)
+- **SSH key**: añadir la clave pública del admin durante la creación
+
+El VPS arranca con acceso root por SSH a su IP pública.
+
+### 5.2 — Instalar Docker
+
+```bash
+# Conectar al VPS por SSH (acceso inicial vía IP pública)
+ssh root@<IP-pública-VPS>
+
+# Instalación oficial Docker para Debian
+apt-get update
+apt-get install -y ca-certificates curl
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+  https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+```
+
+### 5.3 — Instalar Tailscale y conectar al tailnet
+
+```bash
+# Instalación oficial Tailscale para Debian
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Generar auth key en: login.tailscale.com/admin/settings/keys
+# Opciones: reusable, no ephemeral, pre-approved, tag: tag:server
+sudo tailscale up --auth-key=<auth-key>
+```
+
+El VPS aparece en el tailnet con `tag:server` y recibe una IP fija `100.x.x.x`.
+
+### 5.4 — Activar Tailscale SSH
+
+```bash
+sudo tailscale set --ssh
+```
+
+A partir de aquí los admins acceden al VPS directamente con:
+
+```bash
+ssh root@<nombre-nodo-tailscale>
+# o por IP Tailscale
+ssh root@100.x.x.x
+```
+
+Sin necesidad de claves SSH para los admins — la autenticación la gestiona Tailscale.
+
+### 5.5 — Cerrar puerto 22 al tráfico público
+
+En la consola de Hetzner → **Firewalls** → crear regla que bloquee el puerto 22 entrante desde internet. Todo el acceso SSH pasa a requerir conexión al tailnet.
+
+El CI/CD sigue funcionando porque su nodo efímero (`tag:ci`) se une al tailnet antes de hacer el SSH.
+
+### 5.6 — Preparar el VPS para el CI/CD
+
+```bash
+# Crear el directorio de trabajo y clonar el repositorio
+# (deploy key SSH, igual que en Etapa 2 con la VM)
+ssh-keygen -t ed25519 -C "odoo-server" -f ~/.ssh/github_deploy -N ""
+cat ~/.ssh/github_deploy.pub
+# → añadir en GitHub: repo → Settings → Deploy keys
+```
+
+```
+# ~/.ssh/config
+Host github.com
+  IdentityFile ~/.ssh/github_deploy
+  IdentitiesOnly yes
+```
+
+```bash
+git clone git@github.com:USUARIO/REPO.git ~/erp
+```
+
+Añadir también la clave pública del CI (generada en Etapa 4.3):
+
+```bash
+echo "<contenido de github_actions.pub>" >> ~/.ssh/authorized_keys
+```
+
+### 5.7 — Actualizar secretos de GitHub
+
+Actualizar en el repositorio → **Settings → Secrets and variables → Actions**:
+
+| Secret | Valor |
+|---|---|
+| `SERVER_HOST` | IP Tailscale del VPS (`100.x.x.x`) |
+| `SERVER_USER` | Usuario SSH en el VPS (ej: `debian`) |
+
+El resto de secretos (`TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`, `SSH_PRIVATE_KEY`, `POSTGRES_PASSWORD`) no cambian si ya estaban configurados de Etapa 4.
+
+### 5.8 — Primer despliegue automático
+
+Mergear `feat/cicd-pipeline` a `main`. El pipeline se activa automáticamente y despliega el stack en el VPS por primera vez.
 
 ---
 

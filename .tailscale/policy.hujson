@@ -1,10 +1,10 @@
 // Política de acceso Tailscale (ACL) del tailnet del ERP.
 //
 // Dispositivos:
-//   tag:server   — servidor Odoo (VM o mini PC). Autenticado con auth key.
+//   tag:server   — servidor Odoo (VPS en cloud). Autenticado con auth key.
 //   tag:erp-user — usuarios del ERP (solo acceso al puerto 8069). Autenticado con auth key.
 //   tag:ci       — nodos efímeros de GitHub Actions. Solo acceso SSH al servidor.
-//   autogroup:admin — administradores del tailnet (acceso completo).
+//   autogroup:admin — administradores del tailnet (acceso completo + Tailscale SSH).
 //
 // Nota: los dispositivos Android no admiten autenticación con auth key.
 // Los usuarios ERP con dispositivo Android se incorporarán invitándoles al tailnet
@@ -34,6 +34,18 @@
             "src": ["tag:ci"],
             "dst": ["tag:server"],
             "ip":  ["tcp:22"]
+        }
+    ],
+
+    // Tailscale SSH: los admins acceden al servidor sin necesidad de claves SSH.
+    // Requiere activar Tailscale SSH en el servidor: tailscale set --ssh
+    // El CI/CD sigue usando SSH regular con clave dedicada (no usa este bloque).
+    "ssh": [
+        {
+            "action": "accept",
+            "src":    ["autogroup:admin"],
+            "dst":    ["tag:server"],
+            "users":  ["root", "autogroup:nonroot"]
         }
     ]
 }
