@@ -37,10 +37,11 @@ odoo/data/
 postgres/data/
 
 # =============================================================================
-# Editores e IDEs
+# Editores e IDEs y asistentes de desarrollo
 # =============================================================================
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~

@@ -136,12 +136,6 @@ Admin → Tailscale → SSH → mini PC
 
 ```
 .
-├── .claude/                    # Contexto y reglas para el asistente de desarrollo
-│   ├── CLAUDE.md
-│   └── rules/
-│       ├── commit-standards.md
-│       ├── development-approach.md
-│       └── error-solving.md
 ├── odoo/
 │   └── config/
 │       └── odoo.conf           # Configuración de Odoo
